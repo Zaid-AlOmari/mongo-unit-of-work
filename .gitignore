@@ -1,0 +1,16 @@
+/dist
+/dist-test
+/logs
+/npm-debug.log
+node_modules
+dist
+.cache
+.DS_Store
+.idea/
+.vscode/
+coverage/
+.nyc_output/
+/env/dev/graph.db/
+logs/
+backup.*
+/lib

@@ -1,0 +1,20 @@
+{
+  "extension": [
+      ".ts", ".js"
+  ],
+  "include": [
+      "**/interfaces/**",
+      "**/uow/**",
+      "**/utils/**"
+  ],
+  "exclude": [
+      "**/*.d.ts",
+      "**/*.spec.ts"
+  ],
+  "reporter": [
+      "html",
+      "cobertura",
+      "text"
+  ],
+  "all": true
+}

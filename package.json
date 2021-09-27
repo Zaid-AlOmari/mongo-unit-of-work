@@ -1,0 +1,45 @@
+{
+  "name": "mongo-unit-of-work",
+  "version": "0.6.3",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "author": "Zaid Al-Omari",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Zaid-AlOmari/mongo-unit-of-work"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
+  },
+  "scripts": {
+    "build": "./node_modules/.bin/tsc --p tsconfig.json",
+    "test": "cd test; ../node_modules/.bin/tsc -p .; NODE_ENV=test ../node_modules/.bin/nyc ../node_modules/.bin/mocha '../dist-test/**/*.spec.js'",
+    "type-check": "tsc --noEmit",
+    "lint": "./node_modules/.bin/eslint src/*/*.ts --format codeframe",
+    "fix-lint": "./node_modules/.bin/eslint src/*/*.ts --fix"
+  },
+  "dependencies": {
+    "mongodb": "^3.6.6",
+    "@log4js-node/log4js-api": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.2.3",
+    "@types/mocha": "^5.2.7",
+    "@types/mongodb": "^3.1.17",
+    "@types/node": "^10.12.2",
+    "@types/sinon": "^7.5.0",
+    "@typescript-eslint/eslint-plugin": "^4.22.0",
+    "@typescript-eslint/parser": "^4.22.0",
+    "@typescript-eslint/experimental-utils": "^4.22.0",
+    "mongo-mock": "^3.7.1",
+    "eslint": "^7.0.0",
+    "mocha": "^7.1.2",
+    "chai": "^4.2.0",
+    "nyc": "^15.0.1",
+    "sinon": "^9.0.2",
+    "sinon-chai": "^3.5.0",
+    "source-map-support": "^0.5.19",
+    "typescript": "^3.1.6"
+  }
+}
