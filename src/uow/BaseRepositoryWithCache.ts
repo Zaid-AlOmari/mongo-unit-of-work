@@ -1,4 +1,4 @@
-import { Collection, FindOneAndUpdateOption, ClientSession } from 'mongodb';
+import { Collection, ClientSession, Filter, FindOneAndUpdateOptions } from 'mongodb';
 import loggerFactory from '@log4js-node/log4js-api';
 import { BaseRepository } from './BaseRepository';
 import { IEntity, ICache } from '../interfaces';
@@ -24,7 +24,7 @@ export class BaseRepositoryWithCache<T extends IEntity>
     return this._cache.invalidateAll(localOnly);
   }
 
-  constructor(name: string, collection: Collection, protected _cache: ICache<string, T>, protected _session?: ClientSession) {
+  constructor(name: string, collection: Collection<T>, protected _cache: ICache<string, T>, protected _session?: ClientSession) {
     super(name, collection, _session);
   }
 
@@ -56,13 +56,13 @@ export class BaseRepositoryWithCache<T extends IEntity>
     return x;
   }
 
-  async delete(item: IEntity): Promise<any> {
-    await this.invalidateKey(item._id, false);
-    const x = await super.delete(item);
+  async delete(filter: Filter<T> & IEntity): Promise<any> {
+    await this.invalidateKey(filter._id, false);
+    const x = await super.delete(filter);
     return x;
   }
 
-  async findOne(filter: any, projection?: any): Promise<T | undefined> {
+  async findOne(filter: Filter<T>, projection?: any): Promise<T | undefined> {
     if (typeof filter._id === 'string' && Object.keys(filter).length === 1) {
       return this.findById(filter._id, projection);
     }
@@ -122,11 +122,11 @@ export class BaseRepositoryWithCache<T extends IEntity>
     return results;
   }
 
-  async findOneAndUpdate(filter: any, update: any, options?: FindOneAndUpdateOption<T> | undefined): Promise<T | undefined> {
+  async findOneAndUpdate(filter: any, update: any, options?: FindOneAndUpdateOptions): Promise<T | undefined> {
     const result = await super.findOneAndUpdate(filter, update, options);
     if (result) {
       await this.invalidateKey(result._id, false);
-      if (options && options.returnOriginal === false) this.cache(result);
+      if (options && options.returnDocument === 'after') this.cache(result);
       return result;
     }
     else {

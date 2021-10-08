@@ -1,6 +1,6 @@
 {
   "name": "mongo-unit-of-work",
-  "version": "0.6.3",
+  "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "author": "Zaid Al-Omari",
@@ -20,19 +20,19 @@
     "fix-lint": "./node_modules/.bin/eslint src/*/*.ts --fix"
   },
   "dependencies": {
-    "mongodb": "^3.6.6",
+    "mongodb": "^4.1.2",
     "@log4js-node/log4js-api": "^1.0.2"
   },
   "devDependencies": {
     "@types/chai": "^4.2.3",
     "@types/mocha": "^5.2.7",
-    "@types/mongodb": "^3.1.17",
+    "@types/mongodb": "^4.0.7",
     "@types/node": "^10.12.2",
     "@types/sinon": "^7.5.0",
     "@typescript-eslint/eslint-plugin": "^4.22.0",
     "@typescript-eslint/parser": "^4.22.0",
     "@typescript-eslint/experimental-utils": "^4.22.0",
-    "mongo-mock": "^3.7.1",
+    "mongo-mock": "^4.1.0",
     "eslint": "^7.0.0",
     "mocha": "^7.1.2",
     "chai": "^4.2.0",

@@ -1,49 +1,39 @@
-import { UpdateManyOptions, FindOneAndUpdateOption, CollectionAggregationOptions } from 'mongodb';
+import { Collection, ClientSession, AggregateOptions, Filter, UpdateOptions, FindOneAndUpdateOptions } from 'mongodb';
 
 import { BaseRepository } from './BaseRepository';
 import loggerFactory from '@log4js-node/log4js-api';
 import { IAuditable } from '../interfaces/IAuditable';
 
 const logger = loggerFactory.getLogger('AduitableRepository');
-export abstract class AduitableRepository<T extends IAuditable> extends BaseRepository<T> {
+export class AduitableRepository<T extends IAuditable> extends BaseRepository<T> {
 
-  async count(filter: any) {
-    return this._collection.countDocuments(filter, { session: this._session });
+  constructor(protected _name: string, protected _collection: Collection<T>, protected _session?: ClientSession, protected configs = {
+    getUserId: () => 'system',
+    getCurrentTime: () => new Date()
+  }) {
+    super(_name, _collection, _session)
   }
 
-  async aggregate<T>(pipeline: object[], options?: CollectionAggregationOptions) {
-    logger.trace('aggregate', this._name, JSON.stringify(pipeline), JSON.stringify({ ...options, session: undefined }));
-    return this._collection.aggregate<T>(
-      pipeline,
-      { ...options, session: this._session }
-    ).toArray();
-  }
-
-  async findOne(filter: any, projection?: any) {
-    if (Object.values(filter).every(v => typeof v === 'undefined')) {
-      logger.trace('findOne issue', Object.keys(filter));
-      return undefined;
-    }
-    return super.findOne(filter, projection);
+  protected getAuditObject() {
+    return { at: this.configs.getCurrentTime(), by: this.configs.getUserId() }
   }
 
   add(entity: T) {
-    entity.createdAt = new Date();
+    entity.created = this.getAuditObject();
     return super.add(entity);
   }
 
   addMany(entities: T[], ordered = false) {
-    const now = new Date();
-    entities.forEach(e => e.createdAt = now);
+    entities.forEach(e => e.created = this.getAuditObject());
     return super.addMany(entities, ordered);
   }
 
-  update(filter: any, update: any, options?: UpdateManyOptions): Promise<any> {
+  update(filter: Filter<T>, update: any, options?: UpdateOptions): Promise<any> {
     this.addAuditableFields(update, options && options.upsert);
     return super.update(filter, update, options);
   }
 
-  async findOneAndUpdate(filter: any, update: any, options?: FindOneAndUpdateOption<T> | undefined): Promise<T | undefined> {
+  async findOneAndUpdate(filter: any, update: any, options?: FindOneAndUpdateOptions): Promise<T | undefined> {
     if (Object.values(filter).every(v => typeof v === 'undefined')) {
       logger.trace('findOneAndUpdate issue', Object.keys(filter));
       return undefined;
@@ -53,17 +43,17 @@ export abstract class AduitableRepository<T extends IAuditable> extends BaseRepo
   }
 
   patch(filter: any, item: Partial<T>): Promise<T | undefined> {
-    if (item) item.updatedAt = new Date();
+    if (item) item.updated = this.getAuditObject();
     return super.patch(filter, item, false);
   }
 
   addAuditableFields(updateObject: any, upsert: boolean | undefined = false) {
     if (updateObject.$set) {
-      updateObject.$set.updatedAt = new Date();
+      updateObject.$set.updated = this.getAuditObject();
     }
     if (upsert) {
       if (!updateObject.$setOnInsert) updateObject.$setOnInsert = {};
-      updateObject.$setOnInsert.createdAt = new Date();
+      updateObject.$setOnInsert.created = this.getAuditObject();
     }
   }
 }

@@ -23,30 +23,28 @@ export class UnitOfWork implements IUnitOfWork {
     return this._session;
   }
 
-  getRepository<T extends IEntity, R extends IRepository<T>>(name: string, withTransaction = this._options.useTransactions): R {
+  getRepository<T extends IEntity>(name: string, withTransaction = this._options.useTransactions): IRepository<T> {
     let repo = this._repos.get(name + (withTransaction ? '_w' : ''));
-    if (repo) return <R>repo;
+    if (repo) return <IRepository<T>>repo;
     repo = this._repositoryFactory(name, this._client, withTransaction ? this.getSession() : undefined);
     this._repos.set(name + (withTransaction ? '_w' : ''), repo);
-    return <R>repo;
+    return <IRepository<T>>repo;
   }
 
-  commit(): Promise<void> {
+  async commit(): Promise<void> {
     if (this._session && this._session.inTransaction()) {
-      logger.debug('commit');
-      return this._session.commitTransaction();
-    } else {
-      return Promise.resolve();
+      const result = await this._session.commitTransaction();
+      logger.debug('commit', result);
     }
+    return Promise.resolve();
   }
 
-  rollback(): Promise<void> {
+  async rollback(): Promise<void> {
     if (this._session && this._session.inTransaction()) {
-      logger.debug('rollback');
-      return this._session.abortTransaction();
-    } else {
-      return Promise.resolve();
+      const result = await this._session.abortTransaction();
+      logger.debug('rollback', result);
     }
+    return Promise.resolve();
   }
 
   async dispose(): Promise<void> {

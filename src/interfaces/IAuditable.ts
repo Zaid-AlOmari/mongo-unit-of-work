@@ -1,6 +1,12 @@
 import { IEntity } from './IEntity';
 
 export interface IAuditable extends IEntity {
-  createdAt?: Date;
-  updatedAt?: Date;
+  created?: {
+    at: Date,
+    by: string
+  }
+  updated?: {
+    at: Date,
+    by: string
+  }
 }

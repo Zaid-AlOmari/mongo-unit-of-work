@@ -5,8 +5,9 @@ chai.use(require('sinon-chai'));
 const expect = chai.expect;
 
 import mongodb, { MongoClient, ClientSession } from 'mongo-mock';
-import { UnitOfWork, BaseRepository, IEntity, BaseRepositoryWithCache, ICache } from '../src/index';
+import { UnitOfWork, BaseRepository, IEntity, BaseRepositoryWithCache, ICache, IAuditable, AduitableRepository } from '../src/index';
 import { flatObj } from '../src/utils/flatObj';
+import { Collection } from 'mongodb';
 
 mongodb.max_delay = 10;
 
@@ -800,7 +801,7 @@ describe('unit-of-work', () => {
         return Promise.resolve();
       };
       cache.get = (key) => item;
-      const results = await repo.findOneAndUpdate(query, { $set: { name: 'hi' } }, { returnOriginal: false });
+      const results = await repo.findOneAndUpdate(query, { $set: { name: 'hi' } }, { returnDocument: 'after' });
       expect(results).deep.eq(item);
     });
 
@@ -824,11 +825,11 @@ describe('unit-of-work', () => {
         return Promise.resolve();
       };
       cache.get = (key) => item;
-      const results = await repo.findOneAndUpdate(query, { $set: { name: 'hi' } }, { returnOriginal: false });
+      const results = await repo.findOneAndUpdate(query, { $set: { name: 'hi' } }, { returnDocument: 'after' });
       expect(results).deep.eq(undefined);
     });
 
-    it('should not cache the item if returnOriginal is true', async () => {
+    it('should not cache the item if returnDocument is before', async () => {
       const repo = uow.getRepository('c2');
 
       const item = <IEntity>{ _id: '21', type: '21' };
@@ -848,7 +849,7 @@ describe('unit-of-work', () => {
         return Promise.resolve();
       };
       cache.get = (key) => item;
-      const results = await repo.findOneAndUpdate(query, { $set: { name: 'hi' } }, { returnOriginal: true });
+      const results = await repo.findOneAndUpdate(query, { $set: { name: 'hi' } }, { returnDocument: 'before' });
       expect(results).deep.eq(item);
     });
 
@@ -873,7 +874,7 @@ describe('unit-of-work', () => {
         return Promise.resolve();
       };
       cache.get = (key) => item;
-      const results = await repo.findOneAndUpdate(query, { $set: { name: 'hi' } }, { returnOriginal: false });
+      const results = await repo.findOneAndUpdate(query, { $set: { name: 'hi' } }, { returnDocument: 'after' });
       expect(results).deep.eq(undefined);
     });
   });
@@ -896,10 +897,72 @@ describe('unit-of-work', () => {
       expect(results).deep.eq({ '_id': 1, 'profile.name': 'zaid', 'profile.arr': [1, 2] });
     });
   });
+
+  describe('AduitableRepository', () => {
+    it('should add an item with created.at', async () => {
+
+      const repo = uow.getRepository('c3');
+      await repo.add({ _id: '2' });
+      const result: IAuditable | undefined = await repo.findById('2');
+      if (result) {
+        expect(result._id).eq('2');
+        expect(result.created?.at).lte(new Date());
+        expect(result.created?.by).eq('system');
+      }
+    });
+
+    it('should update an item with updated.at', async () => {
+      const repo = uow.getRepository('c3');
+      const result: IAuditable | undefined = await repo.findById('3');
+      await repo.update({ _id: '3' }, { $set: { name: '1' } }, { upsert: true });
+      if (result) {
+        expect(result._id).eq('3');
+        expect(result.created?.at).lte(new Date());
+        expect(result.created?.by).eq('system');
+        expect(result.updated?.at).lte(new Date());
+        expect(result.updated?.by).eq('system');
+      }
+    });
+
+    it('should add many items with auditable fields', async () => {
+      const repo = uow.getRepository<IAuditable>('c3');
+      const result = await repo.addMany([{ _id: '4' }, { _id: '5' }]);
+      for (const obj of result) {
+        if (obj) {
+          expect(obj.created?.at).lte(new Date());
+          expect(obj.created?.by).eq('system');
+        }
+      }
+    });
+
+    it('should findOneAndUpdate an item with updated.at', async () => {
+      const repo = uow.getRepository('c3');
+      const result: IAuditable | undefined = await repo.findOneAndUpdate({ _id: '6' }, { $set: { name: '1' } }, { upsert: true });
+      if (result) {
+        expect(result._id).eq('6');
+        expect(result.created?.by).eq('system');
+        expect(result.updated?.by).eq('system');
+      }
+    });
+
+    it('should patch an item with updated.at', async () => {
+      const repo = uow.getRepository<{ _id: string, name: string } & IAuditable>('c3');
+      const result = await repo.patch({ _id: '7' }, { name: '1' }, true);
+      if (result) {
+        expect(result._id).eq('7');
+        expect(result.created?.at).lte(new Date());
+        expect(result.created?.by).eq('system');
+        expect(result.updated?.at).lte(new Date());
+        expect(result.updated?.by).eq('system');
+      }
+    });
+
+  });
+
 });
 
 function sleep(ms: number) {
-  return new Promise(resolve => {
+  return new Promise<void>(resolve => {
     setTimeout(() => {
       return resolve();
     }, ms);
@@ -914,10 +977,34 @@ function getFactory() {
   return (name: string, client: MongoClient, session: ClientSession) => {
     switch (name) {
       case 'c1': {
-        return new BaseRepository<IEntity>('c1', client.collection('c1', { session }, undefined), session);
+        const collection: Collection<IEntity> = client.collection('c1', { session }, undefined);
+        const cb = async (filter, options) => {
+          const result = await collection.findOne(filter, options);
+          await collection.deleteOne(filter);
+          return { value: result };
+        }
+        collection.findOneAndDelete = <any>cb;
+        return new BaseRepository<IEntity>('c1', collection, session);
       }
       case 'c2': {
-        return new BaseRepositoryWithCache<IEntity>('c2', client.collection('c2', { session }, undefined), getCache(), session);
+        const collection: Collection<IEntity> = client.collection('c2', { session }, undefined);
+        const cb = async (filter, options) => {
+          const result = await collection.findOne(filter, options);
+          await collection.deleteOne(filter);
+          return { value: result };
+        }
+        collection.findOneAndDelete = <any>cb;
+        return new BaseRepositoryWithCache<IEntity>('c2', collection, getCache(), session);
+      }
+      case 'c3': {
+        const collection: Collection<IAuditable> = client.collection('c3', { session }, undefined);
+        const cb = async (filter, options) => {
+          const result = await collection.findOne(filter, options);
+          await collection.deleteOne(filter);
+          return { value: result };
+        }
+        collection.findOneAndDelete = <any>cb;
+        return new AduitableRepository<IAuditable>('c3', collection, session);
       }
       default: throw new Error('unkown repo');
     }
