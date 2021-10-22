@@ -1,11 +1,12 @@
 import { IPage, IPaging } from './IPage';
 import { IEntity } from './IEntity';
+import { Filter } from 'mongodb';
 
 export interface IRead<T extends IEntity> {
-  findOne(filter: any, projection?: any): Promise<T | undefined>;
+  findOne(filter: Filter<T>, projection?: any): Promise<T | undefined>;
   findById(id: string, projection?: any): Promise<T | undefined>;
-  findMany(filter: any, projection?: any): Promise<T[]>;
-  findManyPage(filter: any, paging: IPaging, projection?: any): Promise<IPage<T>>;
+  findMany(filter: Filter<T>, projection?: any): Promise<T[]>;
+  findManyPage(filter: Filter<T>, paging: IPaging, projection?: any): Promise<IPage<T>>;
 }
 
 

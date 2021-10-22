@@ -1,4 +1,4 @@
-import { Collection, ClientSession, Filter, FindOneAndUpdateOptions } from 'mongodb';
+import { Collection, ClientSession, Filter, FindOneAndUpdateOptions, UpdateFilter } from 'mongodb';
 import loggerFactory from '@log4js-node/log4js-api';
 import { BaseRepository } from './BaseRepository';
 import { IEntity, ICache } from '../interfaces';
@@ -42,7 +42,7 @@ export class BaseRepositoryWithCache<T extends IEntity>
     return results;
   }
 
-  async patch(filter: any, item: Partial<T>, upsert = false): Promise<T | undefined> {
+  async patch(filter: Filter<T>, item: Partial<T>, upsert = false): Promise<T | undefined> {
     if (filter && typeof filter._id === 'string') {
       await this.invalidateKey(filter._id, false);
     }
@@ -56,7 +56,7 @@ export class BaseRepositoryWithCache<T extends IEntity>
     return x;
   }
 
-  async delete(filter: Filter<T> & IEntity): Promise<any> {
+  async delete(filter: Filter<T> & IEntity): Promise<T | undefined> {
     await this.invalidateKey(filter._id, false);
     const x = await super.delete(filter);
     return x;
@@ -98,7 +98,7 @@ export class BaseRepositoryWithCache<T extends IEntity>
     return x;
   }
 
-  async findMany(filter: any, projection?: any): Promise<T[]> {
+  async findMany(filter: Filter<T>, projection?: any): Promise<T[]> {
     if (!projection) {
       const query = JSON.stringify(filter);
       const results = this._cache.getQuery(query);
@@ -122,7 +122,7 @@ export class BaseRepositoryWithCache<T extends IEntity>
     return results;
   }
 
-  async findOneAndUpdate(filter: any, update: any, options?: FindOneAndUpdateOptions): Promise<T | undefined> {
+  async findOneAndUpdate(filter: Filter<T>, update: UpdateFilter<T>, options?: FindOneAndUpdateOptions): Promise<T | undefined> {
     const result = await super.findOneAndUpdate(filter, update, options);
     if (result) {
       await this.invalidateKey(result._id, false);

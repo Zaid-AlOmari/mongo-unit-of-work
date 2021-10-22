@@ -1,4 +1,4 @@
-import { Collection, ClientSession, AggregateOptions, Filter, UpdateOptions, FindOneAndUpdateOptions } from 'mongodb';
+import { Collection, ClientSession, Filter, UpdateOptions, FindOneAndUpdateOptions, UpdateFilter } from 'mongodb';
 
 import { BaseRepository } from './BaseRepository';
 import loggerFactory from '@log4js-node/log4js-api';
@@ -28,32 +28,33 @@ export class AduitableRepository<T extends IAuditable> extends BaseRepository<T>
     return super.addMany(entities, ordered);
   }
 
-  update(filter: Filter<T>, update: any, options?: UpdateOptions): Promise<any> {
+  update(filter: Filter<T>, update: UpdateFilter<T>, options?: UpdateOptions): Promise<any> {
     this.addAuditableFields(update, options && options.upsert);
     return super.update(filter, update, options);
   }
 
-  async findOneAndUpdate(filter: any, update: any, options?: FindOneAndUpdateOptions): Promise<T | undefined> {
+  async findOneAndUpdate(filter: Filter<T>, update: UpdateFilter<T>, options?: FindOneAndUpdateOptions): Promise<T | undefined> {
     if (Object.values(filter).every(v => typeof v === 'undefined')) {
       logger.trace('findOneAndUpdate issue', Object.keys(filter));
       return undefined;
     }
-    this.addAuditableFields(update, options && options.upsert);
-    return super.findOneAndUpdate(filter, update, options);
+    return super.findOneAndUpdate(filter, this.addAuditableFields(update, options && options.upsert), options);
   }
 
-  patch(filter: any, item: Partial<T>): Promise<T | undefined> {
+  patch(filter: Filter<T>, item: Partial<T>): Promise<T | undefined> {
     if (item) item.updated = this.getAuditObject();
     return super.patch(filter, item, false);
   }
 
-  addAuditableFields(updateObject: any, upsert: boolean | undefined = false) {
-    if (updateObject.$set) {
-      updateObject.$set.updated = this.getAuditObject();
-    }
-    if (upsert) {
-      if (!updateObject.$setOnInsert) updateObject.$setOnInsert = {};
-      updateObject.$setOnInsert.created = this.getAuditObject();
-    }
+  protected addAuditableFields(updateObject: UpdateFilter<T>, upsert: boolean | undefined = false) {
+    return {
+      ...updateObject,
+      ...(updateObject.$set ? {
+        $set: { updated: this.getAuditObject(), ...updateObject.$set }
+      } : {}),
+      ...(upsert ? {
+        $setOnInsert: { created: this.getAuditObject(), ...updateObject.$setOnInsert }
+      } : {})
+    } as UpdateFilter<T>
   }
 }

@@ -1,4 +1,4 @@
-import { Collection, ClientSession, Filter, UpdateFilter, UpdateOptions, FindOneAndUpdateOptions, ObjectId, OptionalId, AggregateOptions } from 'mongodb';
+import { Collection, ClientSession, Filter, UpdateFilter, UpdateOptions, FindOneAndUpdateOptions, ObjectId, OptionalId, AggregateOptions, UpdateResult, Document } from 'mongodb';
 import { EventEmitter } from 'events';
 import { flatObj } from '../utils/flatObj';
 import loggerFactory from '@log4js-node/log4js-api';
@@ -121,7 +121,7 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     };
   }
 
-  async update(filter: Filter<T>, update: UpdateFilter<T>, options?: UpdateOptions): Promise<any> {
+  async update(filter: Filter<T>, update: UpdateFilter<T>, options?: UpdateOptions): Promise<Document | UpdateResult> {
     logger.trace('update', this._name, JSON.stringify(filter), JSON.stringify(update), JSON.stringify(options));
     const result = await this._collection.updateMany(filter, update, { ...options, session: this._session });
     return result;
