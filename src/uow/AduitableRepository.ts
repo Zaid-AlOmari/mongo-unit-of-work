@@ -42,7 +42,6 @@ export class AduitableRepository<T extends IAuditable> extends BaseRepository<T>
   }
 
   patch(filter: Filter<T>, item: Partial<T>): Promise<T | undefined> {
-    if (item) item.updated = this.getAuditObject();
     return super.patch(filter, item, false);
   }
 
