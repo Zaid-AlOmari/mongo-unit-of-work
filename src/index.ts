@@ -1,4 +1,4 @@
-export { UnitOfWork, BaseRepository, BaseRepositoryWithCache, AduitableRepository } from './uow';
+export { UnitOfWork, BaseRepository, BaseRepositoryWithCache, AuditableRepository } from './uow';
 export {
   IEntity,
   IRead, IWrite,

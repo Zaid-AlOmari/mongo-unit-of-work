@@ -7,3 +7,5 @@ export { IUnitOfWork, IUnitOfWorkOptions } from './IUnitOfWork';
 export { IWrite } from './IWrite';
 export { ICache } from './ICache';
 export { IAuditable } from './IAuditable';
+export { IProtectedResource } from './IProtectedResource';
+export { ResourceAccess } from './IProtectedResource';

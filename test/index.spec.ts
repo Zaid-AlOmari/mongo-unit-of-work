@@ -5,7 +5,7 @@ chai.use(require('sinon-chai'));
 const expect = chai.expect;
 
 import mongodb, { MongoClient, ClientSession } from 'mongo-mock';
-import { UnitOfWork, BaseRepository, IEntity, BaseRepositoryWithCache, ICache, IAuditable, AduitableRepository } from '../src/index';
+import { UnitOfWork, BaseRepository, IEntity, BaseRepositoryWithCache, ICache, IAuditable, AuditableRepository } from '../src/index';
 import { flatObj } from '../src/utils/flatObj';
 import { Collection } from 'mongodb';
 
@@ -199,7 +199,7 @@ describe('unit-of-work', () => {
       repo.on('delete', (item) => {
         expect(item._id).eq('6');
       });
-      await repo.delete({ _id: '6' });
+      await repo.deleteOne({ _id: '6' });
       const item = await repo.findById('6');
       expect(item).eq(undefined);
     });
@@ -477,7 +477,7 @@ describe('unit-of-work', () => {
         expect(key).eq('6');
         return Promise.resolve();
       };
-      await repo.delete({ _id: '6' });
+      await repo.deleteOne({ _id: '6' });
     });
 
     it('should try to invalidate a key in the cache when patch by filter._id', async () => {
@@ -898,16 +898,16 @@ describe('unit-of-work', () => {
     });
   });
 
-  describe('AduitableRepository', () => {
+  describe('AuditableRepository', () => {
     it('should add an item with created.at', async () => {
 
-      const repo = uow.getRepository('c3');
+      const repo = uow.getRepository('c3') as AuditableRepository<IAuditable>;
       await repo.add({ _id: '2' });
       const result: IAuditable | undefined = await repo.findById('2');
       if (result) {
         expect(result._id).eq('2');
         expect(result.created?.at).lte(new Date());
-        expect(result.created?.by).eq('system');
+        expect(result.created?.by).eq(undefined);
       }
     });
 
@@ -918,9 +918,9 @@ describe('unit-of-work', () => {
       if (result) {
         expect(result._id).eq('3');
         expect(result.created?.at).lte(new Date());
-        expect(result.created?.by).eq('system');
+        expect(result.created?.by).eq(undefined);
         expect(result.updated?.at).lte(new Date());
-        expect(result.updated?.by).eq('system');
+        expect(result.updated?.by).eq(undefined);
       }
     });
 
@@ -930,7 +930,7 @@ describe('unit-of-work', () => {
       for (const obj of result) {
         if (obj) {
           expect(obj.created?.at).lte(new Date());
-          expect(obj.created?.by).eq('system');
+          expect(obj.created?.by).eq(undefined);
         }
       }
     });
@@ -940,8 +940,8 @@ describe('unit-of-work', () => {
       const result: IAuditable | undefined = await repo.findOneAndUpdate({ _id: '6' }, { $set: { name: '1' } }, { upsert: true });
       if (result) {
         expect(result._id).eq('6');
-        expect(result.created?.by).eq('system');
-        expect(result.updated?.by).eq('system');
+        expect(result.created?.by).eq(undefined);
+        expect(result.updated?.by).eq(undefined);
       }
     });
 
@@ -951,9 +951,9 @@ describe('unit-of-work', () => {
       if (result) {
         expect(result._id).eq('7');
         expect(result.created?.at).lte(new Date());
-        expect(result.created?.by).eq('system');
+        expect(result.created?.by).eq(undefined);
         expect(result.updated?.at).lte(new Date());
-        expect(result.updated?.by).eq('system');
+        expect(result.updated?.by).eq(undefined);
       }
     });
 
@@ -1004,7 +1004,7 @@ function getFactory() {
           return { value: result };
         }
         collection.findOneAndDelete = <any>cb;
-        return new AduitableRepository<IAuditable>('c3', collection, session);
+        return new AuditableRepository<IAuditable>('c3', collection, session);
       }
       default: throw new Error('unkown repo');
     }

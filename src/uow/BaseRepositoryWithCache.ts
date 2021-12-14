@@ -56,9 +56,9 @@ export class BaseRepositoryWithCache<T extends IEntity>
     return x;
   }
 
-  async delete(filter: Filter<T> & IEntity): Promise<T | undefined> {
+  async deleteOne(filter: Filter<T> & IEntity): Promise<T | undefined> {
     await this.invalidateKey(filter._id, false);
-    const x = await super.delete(filter);
+    const x = await super.deleteOne(filter);
     return x;
   }
 

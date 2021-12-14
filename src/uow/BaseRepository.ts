@@ -78,11 +78,17 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     return result;
   }
 
-  async delete(filter: Filter<T>): Promise<T | undefined> {
+  async deleteOne(filter: Filter<T>): Promise<T | undefined> {
     logger.trace('delete', this._name, JSON.stringify(filter));
     const x = await this._collection.findOneAndDelete(filter, { session: this._session });
     this._eventEmitter.emit('delete', x.value);
     return x.value ? x.value : undefined;
+  }
+
+  async deleteMany(filter: Filter<T>): Promise<number> {
+    logger.trace('deleteMany', this._name, JSON.stringify(filter));
+    const x = await this._collection.deleteMany(filter, { session: this._session });
+    return x.deletedCount;
   }
 
   async findOne(filter: Filter<T>, projection?: any): Promise<T | undefined> {
