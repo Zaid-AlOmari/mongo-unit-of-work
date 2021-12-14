@@ -10,7 +10,7 @@ export type ProtectedRepositoryConfigs = RepositoryConfigs<AuditableRepositoryCo
    * @param neededAccess the needed access to validate against.
    * @returns a boolean that indicates whether the current user has the specified access to the resource or not.
    */
-  hasGlobalAccces: (resourceType: string, neededAccess: ResourceAccess) => boolean;
+  hasGlobalAccess: (resourceType: string, neededAccess: ResourceAccess) => boolean;
   /**
    * allow the current user to remove his own write access to a resource.
    */
@@ -19,7 +19,7 @@ export type ProtectedRepositoryConfigs = RepositoryConfigs<AuditableRepositoryCo
 
 export const defaultProtectedRepositoryConfigs: ProtectedRepositoryConfigs = {
   ...defaultConfigs,
-  hasGlobalAccces: (resourceType: string, neededAccess: ResourceAccess) => false,
+  hasGlobalAccess: (resourceType: string, neededAccess: ResourceAccess) => false,
   /**
    * allow the current user to remove their own write access (default: false)
    */
@@ -45,7 +45,7 @@ export class ProtectedRepository<T extends IAuditable & IProtectedResource> exte
   protected getAuthorizedFilter(filter: Filter<T>, neededAccess: ResourceAccess) {
     const userId = this._configs.getUserId();
     if (!userId) return undefined;
-    if (this.configs.hasGlobalAccces(this.resourceType, neededAccess)) return filter;
+    if (this.configs.hasGlobalAccess(this.resourceType, neededAccess)) return filter;
     return <Filter<T>>{
       ...filter,
       [`acl.users.${userId}`]: { $bitsAllSet: neededAccess }
