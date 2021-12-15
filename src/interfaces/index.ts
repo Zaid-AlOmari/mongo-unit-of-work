@@ -9,3 +9,4 @@ export { ICache } from './ICache';
 export { IAuditable } from './IAuditable';
 export { IProtectedResource } from './IProtectedResource';
 export { ResourceAccess } from './IProtectedResource';
+export { Access } from './IProtectedResource';
