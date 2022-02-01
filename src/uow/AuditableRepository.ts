@@ -71,9 +71,9 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
 
   patch(filter: Filter<T>, item: Partial<T>): Promise<T | undefined> {
     const newFilter = this.getDeletedFilter(filter);
+    item.updated = this.getAuditObject();
     return super.patch(newFilter, item);
   }
-
 
   async deleteMany(filter: Filter<T>): Promise<number> {
     if (!this._configs.softDelete) return super.deleteMany(filter);
