@@ -69,8 +69,12 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     return super.count(newFilter);
   }
 
-  patch(filter: Filter<T>, item: Partial<T>): Promise<T | undefined> {
+  patch(filter: Filter<T>, item: Partial<T>, upsert = false): Promise<T | undefined> {
     const newFilter = this.getDeletedFilter(filter);
+    const newItem = { ...item };
+    if (item) newItem.updated = this.getAuditObject();
+
+    this.addAuditableFields(newItem, upsert);
     return super.patch(newFilter, item);
   }
 
@@ -114,6 +118,7 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
 
   update(filter: Filter<T>, update: UpdateFilter<T>, options?: UpdateOptions) {
     const newFilter = this.getDeletedFilter(filter);
+    this.addAuditableFields(update, options?.upsert);
     return super.update(newFilter, update, options);
   }
 
@@ -123,7 +128,7 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     options?: FindOneAndUpdateOptions
   ): Promise<T | undefined> {
     const newFilter = this.getDeletedFilter(filter);
-
+    this.addAuditableFields(update, options?.upsert);
     return super.findOneAndUpdate(newFilter, update, options);
   }
 
@@ -140,5 +145,16 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     }
 
     return super.aggregate(newPipeline, options);
+  }
+
+  addAuditableFields<T extends IAuditable>(updateObject: UpdateFilter<T>, upsert = false) {
+    const newUpdate = { ...updateObject }
+    if (newUpdate.$set) {
+      newUpdate.$set = { updated: this.getAuditObject(), ...newUpdate.$set }
+    }
+    if (upsert) {
+      newUpdate.$setOnInsert = { created: this.getAuditObject(), ...newUpdate.$setOnInsert } as Readonly<Partial<T>>;
+    }
+    return newUpdate;
   }
 }
