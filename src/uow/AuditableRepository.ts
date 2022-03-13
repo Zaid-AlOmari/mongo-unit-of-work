@@ -73,8 +73,6 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     const newFilter = this.getDeletedFilter(filter);
     const newItem = { ...item };
     if (item) newItem.updated = this.getAuditObject();
-
-    this.addAuditableFields(newItem, upsert);
     return super.patch(newFilter, item);
   }
 
@@ -118,8 +116,8 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
 
   update(filter: Filter<T>, update: UpdateFilter<T>, options?: UpdateOptions) {
     const newFilter = this.getDeletedFilter(filter);
-    this.addAuditableFields(update, options?.upsert);
-    return super.update(newFilter, update, options);
+    const newUpdate = this.addAuditableFields(update, options?.upsert);
+    return super.update(newFilter, newUpdate, options);
   }
 
   async findOneAndUpdate(
@@ -128,8 +126,8 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     options?: FindOneAndUpdateOptions
   ): Promise<T | undefined> {
     const newFilter = this.getDeletedFilter(filter);
-    this.addAuditableFields(update, options?.upsert);
-    return super.findOneAndUpdate(newFilter, update, options);
+    const newUpdate = this.addAuditableFields(update, options?.upsert);
+    return super.findOneAndUpdate(newFilter, newUpdate, options);
   }
 
   aggregate<T>(pipeline: object[], options?: AggregateOptions): Promise<T[]> {
