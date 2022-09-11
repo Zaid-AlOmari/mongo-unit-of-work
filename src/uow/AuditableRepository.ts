@@ -83,8 +83,10 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
 
   async deleteMany(filter: Filter<T>): Promise<number> {
     if (!this._configs.softDelete) return super.deleteMany(filter);
+    const newFilter = this.getDeletedFilter(filter);
+    const $set = <UpdateFilter<T>['$set']><any>{ deleted: this.getAuditObject() };
     const result = await this._collection.updateMany(
-      filter,
+      newFilter,
       { $set: <any>{ deleted: this.getAuditObject() } },
       { session: this._session }
     );
@@ -93,9 +95,10 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
 
   async deleteOne(filter: Filter<T>): Promise<T | undefined> {
     if (!this._configs.softDelete) return super.deleteOne(filter);
-    const $set = <any>{ deleted: this.getAuditObject() };
+    const newFilter = this.getDeletedFilter(filter);
+    const $set = <UpdateFilter<T>['$set']><any>{ deleted: this.getAuditObject() };
     const result = await this._collection.findOneAndUpdate(
-      filter,
+      newFilter,
       { $set },
       { returnDocument: 'after', session: this._session }
     );
