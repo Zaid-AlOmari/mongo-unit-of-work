@@ -950,7 +950,7 @@ describe('unit-of-work', () => {
       }
     });
 
-    it('should patch an item with updated.at', async (done) => {
+    it('should patch an item with updated.at', async () => {
       const repo = uow.getRepository<{ _id: string, name?: string } & IAuditable>('c3');
       await repo.add({ _id: '7' });
       const result = await repo.patch({ _id: '7' }, { name: '1222' }, false);
