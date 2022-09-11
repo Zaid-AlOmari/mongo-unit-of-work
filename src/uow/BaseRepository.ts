@@ -17,7 +17,7 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     return this._name;
   }
 
-  async aggregate<T>(pipeline: object[], options?: AggregateOptions) {
+  async aggregate<T extends Document>(pipeline: object[], options?: AggregateOptions) {
     logger.trace('aggregate', this._name, JSON.stringify(pipeline), JSON.stringify({ ...options, session: undefined }));
     return this._collection.aggregate<T>(
       pipeline,

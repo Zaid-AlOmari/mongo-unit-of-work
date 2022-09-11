@@ -6,7 +6,8 @@ import {
   FindOneAndUpdateOptions,
   UpdateFilter,
   AggregateOptions,
-  UpdateResult
+  UpdateResult,
+  Document
 } from 'mongodb';
 import { IPage, IPaging, IAuditable } from '../interfaces';
 
@@ -132,7 +133,7 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     return super.findOneAndUpdate(newFilter, newUpdate, options);
   }
 
-  aggregate<T>(pipeline: object[], options?: AggregateOptions): Promise<T[]> {
+  aggregate<T extends Document>(pipeline: object[], options?: AggregateOptions | undefined): Promise<T[]> {
     let newPipeline = pipeline;
 
     if (this._configs.softDelete) {
@@ -143,8 +144,7 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
         newPipeline = [{ $match: { deleted: { $exists: false } } }, ...pipeline];
       }
     }
-
-    return super.aggregate(newPipeline, options);
+    return super.aggregate<T>(newPipeline, options);
   }
 
   addAuditableFields<T extends IAuditable>(updateObject: UpdateFilter<T>, upsert = false) {
