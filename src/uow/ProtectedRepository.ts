@@ -129,9 +129,9 @@ export class ProtectedRepository<T extends IAuditable & IProtectedResource> exte
       if ((users[userId] & Access.write) === Access.none) {
         // don't allow the current user to remove their own write access.
         if (userId === this._configs.getUserId() && this.configs.allowRemoveOwnAccess) continue;
-        Object.assign($unset, accessObject);
+        Object.assign<any, any>($unset, accessObject);
       } else {
-        Object.assign($set, accessObject);
+        Object.assign<any, any>($set, accessObject);
       }
 
     }
@@ -156,9 +156,9 @@ export class ProtectedRepository<T extends IAuditable & IProtectedResource> exte
       if ((users[userId] & Access.write) === Access.none) {
         // don't allow the current user to remove their own write access.
         if (userId === this._configs.getUserId() && this.configs.allowRemoveOwnAccess) continue;
-        Object.assign($unset, accessObject);
+        Object.assign<any, any>($unset, accessObject);
       } else {
-        Object.assign($set, accessObject);
+        Object.assign<any, any>($set, accessObject);
       }
 
     }

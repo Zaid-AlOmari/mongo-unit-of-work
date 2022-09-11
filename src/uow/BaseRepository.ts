@@ -1,4 +1,4 @@
-import { Collection, ClientSession, Filter, UpdateFilter, UpdateOptions, FindOneAndUpdateOptions, ObjectId, OptionalId, AggregateOptions, UpdateResult, Document } from 'mongodb';
+import { Collection, ClientSession, Filter, UpdateFilter, UpdateOptions, FindOneAndUpdateOptions, ObjectId, OptionalId, AggregateOptions, UpdateResult, Document, WithId, OptionalUnlessRequiredId } from 'mongodb';
 import { EventEmitter } from 'events';
 import { flatObj } from '../utils/flatObj';
 import loggerFactory from '@log4js-node/log4js-api';
@@ -31,7 +31,7 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
 
   async add(item: T): Promise<T> {
     logger.trace('add', this._name, JSON.stringify(item));
-    await this._collection.insertOne(item as OptionalId<T>, { session: this._session });
+    await this._collection.insertOne(<OptionalUnlessRequiredId<T>>item, { session: this._session });
     this._eventEmitter.emit('add', item);
     return item;
   }
@@ -40,9 +40,9 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     logger.trace('addMany', this._name, JSON.stringify(items), `ordered : ${ordered}`);
     let resultItems: T[];
     try {
-      await this._collection.insertMany(items as OptionalId<T>[], { ordered, session: this._session });
+      await this._collection.insertMany(items as OptionalUnlessRequiredId<T>[], { ordered, session: this._session });
       resultItems = items;
-    } catch (err) {
+    } catch (err: any) {
       if (err && err.writeErrors && err.writeErrors.length) {
         const ids: string[] = err.writeErrors.map((e: any) => e.err.op._id);
         resultItems = items.filter(i => !ids.includes(i._id));
@@ -71,6 +71,7 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     if (Object.keys(updateObj.$set).length === 0) delete updateObj.$set;
     if (Object.keys(updateObj.$unset).length === 0) delete updateObj.$unset;
     if (Object.keys(updateObj).length === 0) return Promise.reject(new Error('No changes submited!'));
+    console.log(updateObj);
     const result = await this.findOneAndUpdate(filter, updateObj, { upsert, returnDocument: 'after' });
     if (result) {
       this._eventEmitter.emit('update', result);
@@ -82,7 +83,7 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     logger.trace('delete', this._name, JSON.stringify(filter));
     const x = await this._collection.findOneAndDelete(filter, { session: this._session });
     this._eventEmitter.emit('delete', x.value);
-    return x.value ? x.value : undefined;
+    return x.value ? <T>x.value : undefined;
   }
 
   async deleteMany(filter: Filter<T>): Promise<number> {
@@ -103,9 +104,10 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     return x || undefined;
   }
 
-  findMany(filter: Filter<T>, projection?: any): Promise<T[]> {
+  async findMany(filter: Filter<T>, projection?: any): Promise<T[]> {
     logger.trace('findMany', this._name, JSON.stringify(filter), JSON.stringify(projection));
-    return this._collection.find(filter, { projection, session: this._session }).toArray();
+    const result = await this._collection.find(filter, { projection, session: this._session }).toArray();
+    return <T[]>result;
   }
 
   async findManyPage(filter: Filter<T>, paging: IPaging, projection?: any): Promise<IPage<T>> {
@@ -137,7 +139,7 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
   async findOneAndUpdate(filter: Filter<T>, update: UpdateFilter<T>, options?: FindOneAndUpdateOptions): Promise<T | undefined> {
     logger.trace('findOneAndUpdate', this._name, JSON.stringify(filter), JSON.stringify(update), JSON.stringify(options));
     const result = await this._collection.findOneAndUpdate(filter, update, { ...options, session: this._session });
-    return result.value ? result.value : undefined;
+    return result.value ? <T>result.value : undefined;
   }
 
   protected _eventEmitter = new EventEmitter();

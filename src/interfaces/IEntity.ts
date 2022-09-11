@@ -1,4 +1,3 @@
+import { WithId } from "mongodb";
 
-export interface IEntity {
-  _id: string;
-}
+export type IEntity = WithId<{ _id: string; }>;
