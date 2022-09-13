@@ -71,11 +71,12 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     if (Object.keys(updateObj.$set).length === 0) delete updateObj.$set;
     if (Object.keys(updateObj.$unset).length === 0) delete updateObj.$unset;
     if (Object.keys(updateObj).length === 0) return Promise.reject(new Error('No changes submited!'));
-    const result = await this.findOneAndUpdate(filter, updateObj, { upsert, returnDocument: 'after' });
+
+    const result = await this._collection.findOneAndUpdate(filter, updateObj, { upsert, session: this._session, returnDocument: 'after' });
     if (result) {
       this._eventEmitter.emit('update', result);
     }
-    return result;
+    return result.value ? <T>result.value : undefined;
   }
 
   async deleteOne(filter: Filter<T>): Promise<T | undefined> {

@@ -358,7 +358,7 @@ describe('unit-of-work', () => {
 
     it('should patch an item', async () => {
       const repo = uow.getRepository('c1');
-      Object.defineProperty(repo, 'findOneAndUpdate', {
+      Object.defineProperty(repo['_collection'], 'findOneAndUpdate', {
         value: (filter, update, options) => {
           expect(filter).deep.eq({ _id: '23' });
           expect(update).deep.eq({ $set: { name: 'zaid' }, $unset: { email: '' } });
@@ -376,7 +376,7 @@ describe('unit-of-work', () => {
 
     it('should not include a set command no $set is required', async () => {
       const repo = uow.getRepository('c1');
-      Object.defineProperty(repo, 'findOneAndUpdate', {
+      Object.defineProperty(repo['_collection'], 'findOneAndUpdate', {
         value: (filter, update, options) => {
           expect(filter).deep.eq({ _id: '23' });
           expect(update).deep.eq({ $unset: { email: '' } });
@@ -394,7 +394,8 @@ describe('unit-of-work', () => {
 
     it('should not include a unset command no $unset is required', async () => {
       const repo = uow.getRepository('c1');
-      Object.defineProperty(repo, 'findOneAndUpdate', {
+
+      Object.defineProperty(repo['_collection'], 'findOneAndUpdate', {
         value: (filter, update, options) => {
           expect(filter).deep.eq({ _id: '23' });
           expect(update).deep.eq({ $set: { name: 'zaid' } });
@@ -424,9 +425,9 @@ describe('unit-of-work', () => {
 
     it('should not emit update event if not found', async () => {
       const repo = uow.getRepository('c1');
-      Object.defineProperty(repo, 'findOneAndUpdate', {
+      Object.defineProperty(repo['_collection'], 'findOneAndUpdate', {
         value: (filter, update, options) => {
-          return Promise.resolve(undefined);
+          return Promise.resolve('');
         }
       });
       repo.on('update', (item) => {
