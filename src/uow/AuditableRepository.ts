@@ -108,9 +108,7 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
 
   findById(id: string, projection?: any): Promise<T | undefined> {
     if (this._configs.softDelete) {
-      const filter = {};
-      Object.assign(filter, { _id: id });
-      return this.findOne(filter, projection);
+      return this.findOne(<Filter<T>>{ _id: id }, projection);
     }
     else return super.findById(id, projection);
   }
