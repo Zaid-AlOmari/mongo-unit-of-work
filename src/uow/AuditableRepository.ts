@@ -7,7 +7,8 @@ import {
   UpdateFilter,
   AggregateOptions,
   UpdateResult,
-  MatchKeysAndValues
+  MatchKeysAndValues,
+  Document
 } from 'mongodb';
 import { IPage, IPaging, IAuditable } from '../interfaces';
 
@@ -52,7 +53,10 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
   }
 
   protected getAuditObject() {
-    return { at: this._configs.getCurrentTime(), by: this._configs.getUserId() }
+    return {
+      at: this._configs.getCurrentTime(),
+      ...(this.configs.getUserId() ? { by: this._configs.getUserId() } : {}),
+    }
   }
 
   add(entity: T) {
@@ -73,18 +77,18 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
   patch(filter: Filter<T>, item: Partial<T>, upsert = false): Promise<T | undefined> {
     const newFilter = this.getDeletedFilter(filter);
     const newItem = { ...item };
-    if (item) newItem.updated = this.getAuditObject();
-    return super.patch(newFilter, item);
+    if (item && Object.keys(item).length > 0) newItem.updated = this.getAuditObject();
+    return super.patch(newFilter, newItem, upsert);
   }
 
 
   async deleteMany(filter: Filter<T>): Promise<number> {
     if (!this._configs.softDelete) return super.deleteMany(filter);
     const newFilter = this.getDeletedFilter(filter);
-    const $set = <UpdateFilter<T>['$set']>{ deleted: this.getAuditObject() };
+    const $set = <UpdateFilter<T>['$set']><any>{ deleted: this.getAuditObject() };
     const result = await this._collection.updateMany(
       newFilter,
-      { $set },
+      { $set: <any>{ deleted: this.getAuditObject() } },
       { session: this._session }
     );
     return result.modifiedCount;
@@ -93,13 +97,13 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
   async deleteOne(filter: Filter<T>): Promise<T | undefined> {
     if (!this._configs.softDelete) return super.deleteOne(filter);
     const newFilter = this.getDeletedFilter(filter);
-    const $set = <UpdateFilter<T>['$set']>{ deleted: this.getAuditObject() };
+    const $set = <UpdateFilter<T>['$set']><any>{ deleted: this.getAuditObject() };
     const result = await this._collection.findOneAndUpdate(
       newFilter,
       { $set },
       { returnDocument: 'after', session: this._session }
     );
-    return result.value ? result.value : undefined;
+    return result.value ? <T>result.value : undefined;
   }
 
   findOne(filter: Filter<T>, projection?: any): Promise<T | undefined> {
@@ -133,19 +137,18 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     return super.findOneAndUpdate(newFilter, newUpdate, options);
   }
 
-  aggregate<T>(pipeline: object[], options?: AggregateOptions): Promise<T[]> {
+  aggregate<T extends Document>(pipeline: object[], options?: AggregateOptions | undefined): Promise<T[]> {
     let newPipeline = pipeline;
 
     if (this._configs.softDelete) {
-      if (pipeline.length > 0 && pipeline[0].hasOwnProperty('$match')) {
+      if (pipeline.length > 0 && typeof pipeline[0] === 'object' && pipeline[0]['$match']) {
         const [existingMatch, ...rest] = pipeline;
         newPipeline = [{ $match: { deleted: { $exists: false }, ...existingMatch['$match'] } }, ...rest];
       } else {
         newPipeline = [{ $match: { deleted: { $exists: false } } }, ...pipeline];
       }
     }
-
-    return super.aggregate(newPipeline, options);
+    return super.aggregate<T>(newPipeline, options);
   }
 
   addAuditableFields<T extends IAuditable>(updateObject: UpdateFilter<T>, upsert = false) {
@@ -157,7 +160,9 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
       newUpdate.$set = <MatchKeysAndValues<T>>{ updated: this.getAuditObject() }
     }
     if (upsert) {
-      newUpdate.$setOnInsert = { created: this.getAuditObject(), ...newUpdate.$setOnInsert } as Readonly<Partial<T>>;
+      Object.assign(newUpdate, {
+        $setOnInsert: { created: this.getAuditObject(), ...newUpdate.$setOnInsert } as Readonly<Partial<T>>
+      });
     }
     return newUpdate;
   }

@@ -3,14 +3,14 @@ import { IEntity } from './IEntity';
 export interface IAuditable extends IEntity {
   created?: {
     at: Date;
-    by: string | undefined;
+    by?: string;
   };
   updated?: {
     at: Date;
-    by: string | undefined;
+    by?: string;
   };
   deleted?: {
     at: Date;
-    by: string | undefined;
+    by?: string;
   };
 }
