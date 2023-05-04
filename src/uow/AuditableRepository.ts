@@ -6,7 +6,8 @@ import {
   FindOneAndUpdateOptions,
   UpdateFilter,
   AggregateOptions,
-  UpdateResult
+  UpdateResult,
+  MatchKeysAndValues
 } from 'mongodb';
 import { IPage, IPaging, IAuditable } from '../interfaces';
 
@@ -151,6 +152,9 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     const newUpdate = { ...updateObject }
     if (newUpdate.$set) {
       newUpdate.$set = { updated: this.getAuditObject(), ...newUpdate.$set }
+    }
+    else {
+      newUpdate.$set = <MatchKeysAndValues<T>>{ updated: this.getAuditObject() }
     }
     if (upsert) {
       newUpdate.$setOnInsert = { created: this.getAuditObject(), ...newUpdate.$setOnInsert } as Readonly<Partial<T>>;
