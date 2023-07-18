@@ -114,12 +114,13 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     logger.trace('findMany', this._name, JSON.stringify(filter), JSON.stringify(paging), JSON.stringify(projection));
     const total = await this._collection.countDocuments(filter, <{}>{ fields: projection, session: this._session });
     let cursor = this._collection
-      .find<T>(filter, { projection, session: this._session })
-      .skip(paging.index * paging.size)
-      .limit(paging.size);
+      .find<T>(filter, { projection, session: this._session });
     if (paging.sorter) {
       cursor = cursor.sort(paging.sorter);
     }
+    cursor = cursor.skip(paging.index * paging.size)
+      .limit(paging.size);
+
     const items = await cursor.toArray();
     return <IPage<T>>{
       index: paging.index + 1,
