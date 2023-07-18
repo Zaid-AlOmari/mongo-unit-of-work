@@ -7,6 +7,7 @@ import {
   UpdateFilter,
   AggregateOptions,
   UpdateResult,
+  MatchKeysAndValues,
   Document
 } from 'mongodb';
 import { IPage, IPaging, IAuditable } from '../interfaces';
@@ -154,6 +155,9 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     const newUpdate = { ...updateObject }
     if (newUpdate.$set) {
       newUpdate.$set = { updated: this.getAuditObject(), ...newUpdate.$set }
+    }
+    else {
+      newUpdate.$set = <MatchKeysAndValues<T>>{ updated: this.getAuditObject() }
     }
     if (upsert) {
       Object.assign(newUpdate, {
