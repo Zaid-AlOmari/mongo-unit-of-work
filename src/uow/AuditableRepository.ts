@@ -111,6 +111,14 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     return super.findOne(newFilter, projection);
   }
 
+  findById(id: string, projection?: any): Promise<T | undefined> {
+    if (this._configs.softDelete) {
+      return this.findOne(<Filter<T>>{ _id: id }, projection);
+    }
+    else return super.findById(id, projection);
+  }
+
+
   findMany(filter: Filter<T>, projection?: any): Promise<T[]> {
     const newFilter = this.getDeletedFilter(filter);
     return super.findMany(newFilter, projection);
