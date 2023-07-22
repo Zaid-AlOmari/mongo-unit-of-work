@@ -5,11 +5,18 @@ chai.use(require('sinon-chai'));
 const expect = chai.expect;
 
 import mongodb, { MongoClient, ClientSession } from 'mongo-mock';
-import { UnitOfWork, BaseRepository, IEntity, BaseRepositoryWithCache, ICache, IAuditable, AuditableRepository } from '../src/index';
+import { UnitOfWork, BaseRepository, IEntity, BaseRepositoryWithCache, ICache, IAuditable, AuditableRepository, IRepository } from '../src/index';
 import { flatObj } from '../src/utils/flatObj';
 import { Collection } from 'mongodb';
+import { getFactory, Repositories } from '../src/interfaces/IRepositoryFactory';
 
 mongodb.max_delay = 10;
+
+const repos: Repositories = {
+  c1: (name, client, session) => new BaseRepository(name, getMockedCollection(name, client), session),
+  c2: (name, client, session) => new BaseRepositoryWithCache(name, getMockedCollection(name, client), getCache(), session),
+  c3: (name, client, session) => new AuditableRepository(name, getMockedCollection(name, client), session),
+}
 
 describe('unit-of-work', () => {
 
@@ -34,7 +41,7 @@ describe('unit-of-work', () => {
     Object.defineProperty(client, 'startSession', {
       value: () => getNewSession()
     });
-    uow = new UnitOfWork(client, getFactory(), { useTransactions: false });
+    uow = new UnitOfWork(client, getFactory(repos), { useTransactions: false });
   });
 
   afterEach(async () => {
@@ -50,13 +57,13 @@ describe('unit-of-work', () => {
     });
 
     it('should default to useTransactions being true', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory(), undefined);
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos), undefined);
       // tslint:disable-next-line: no-string-literal
       expect(newUnitOfWork['_options']).deep.eq({ useTransactions: true });
     });
 
     it('should getSession with started transaction', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory());
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos));
       // tslint:disable-next-line: no-string-literal
       const session = newUnitOfWork['getSession']();
       expect(session).eq(session);
@@ -65,7 +72,7 @@ describe('unit-of-work', () => {
     });
 
     it('should getRepository from the supplied factory', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory());
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos));
       // tslint:disable-next-line: no-string-literal
       const repo = newUnitOfWork.getRepository('c1');
       expect(repo.name).eq('c1');
@@ -73,7 +80,7 @@ describe('unit-of-work', () => {
     });
 
     it('should commit if in a trasaction', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory());
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos));
       // tslint:disable-next-line: no-string-literal
       const session = newUnitOfWork['getSession']();
       let committed = false;
@@ -88,7 +95,7 @@ describe('unit-of-work', () => {
     });
 
     it('should pass when committing without a trasaction', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory(), { useTransactions: false });
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos), { useTransactions: false });
       const repo = newUnitOfWork.getRepository('c1');
       await newUnitOfWork.commit();
       // tslint:disable-next-line: no-string-literal
@@ -96,7 +103,7 @@ describe('unit-of-work', () => {
     });
 
     it('should rollback if in a trasaction', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory());
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos));
       // tslint:disable-next-line: no-string-literal
       const session = newUnitOfWork['getSession']();
       let aborted = false;
@@ -111,7 +118,7 @@ describe('unit-of-work', () => {
     });
 
     it('should pass when rolling back without a trasaction', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory(), { useTransactions: false });
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos), { useTransactions: false });
       const repo = newUnitOfWork.getRepository('c1');
       await newUnitOfWork.rollback();
       // tslint:disable-next-line: no-string-literal
@@ -119,7 +126,7 @@ describe('unit-of-work', () => {
     });
 
     it('should rollback when calling dispose if in a trasaction', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory(), { useTransactions: true });
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos), { useTransactions: true });
       const repo = newUnitOfWork.getRepository('c1', true);
       let aborted = false;
       // tslint:disable-next-line: no-string-literal
@@ -131,7 +138,7 @@ describe('unit-of-work', () => {
     });
 
     it('should throw error when calling dispose if in a trasaction and an endSession failed', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory(), { useTransactions: true });
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos), { useTransactions: true });
       const repo = newUnitOfWork.getRepository('c1', true);
       let aborted = false;
       // tslint:disable-next-line: no-string-literal
@@ -145,13 +152,13 @@ describe('unit-of-work', () => {
       try {
         await newUnitOfWork.dispose();
         expect(false, 'Should not reach here!').eq(true);
-      } catch (err) {
+      } catch (err: any) {
         expect(err);
       }
     });
 
     it('should end session when calling dispose if not in a trasaction', async () => {
-      const newUnitOfWork = new UnitOfWork(client, getFactory());
+      const newUnitOfWork = new UnitOfWork(client, getFactory(repos));
       const repo = newUnitOfWork.getRepository('c1', true);
       // tslint:disable-next-line: no-string-literal
       repo['_session'].inTransaction = () => false;
@@ -263,7 +270,7 @@ describe('unit-of-work', () => {
     });
 
     it('should update by filter', async () => {
-      const repo = uow.getRepository('c1');
+      const repo = uow.getRepository('c1') as IRepository<{ name?: string; _id: string }>;
       await repo.add({ _id: '17' });
       await repo.update({ _id: '17' }, { $set: { name: 'zaid' } });
       const result = await repo.findById('17', { _id: 1, name: 1 });
@@ -271,14 +278,14 @@ describe('unit-of-work', () => {
     });
 
     it('should findOneAndUpdate by filter if found', async () => {
-      const repo = uow.getRepository('c1');
+      const repo = uow.getRepository('c1') as IRepository<{ name?: string; _id: string }>;
       await repo.add({ _id: '18' });
       const result = await repo.findOneAndUpdate({ _id: '18' }, { $set: { name: 'zaid' } });
       expect(result).deep.eq({ _id: '18', name: 'zaid' });
     });
 
     it('should return undefined for findOneAndUpdate if not found', async () => {
-      const repo = uow.getRepository('c1');
+      const repo = uow.getRepository('c1') as IRepository<{ name?: string; _id: string }>;
       // tslint:disable-next-line: no-string-literal
       repo['_collection'].findOneAndUpdate = (filter, update, options) => {
         expect(filter).deep.eq({ _id: '18' });
@@ -290,7 +297,7 @@ describe('unit-of-work', () => {
     });
 
     it('should return only sucessfully added items for addMnay', async () => {
-      const repo = uow.getRepository('c1');
+      const repo = uow.getRepository('c1') as IRepository<{ name?: string; _id: string }>;
       // tslint:disable-next-line: no-string-literal
       Object.defineProperty(repo['_collection'], 'insertMany', {
         value: (items, options) => {
@@ -309,7 +316,7 @@ describe('unit-of-work', () => {
     });
 
     it('should throw if some error happend for addMnay', async () => {
-      const repo = uow.getRepository('c1');
+      const repo = uow.getRepository('c1') as IRepository<{ name?: string; _id: string }>;
       // tslint:disable-next-line: no-string-literal
       Object.defineProperty(repo['_collection'], 'insertMany', {
         value: (items, options) => {
@@ -319,7 +326,7 @@ describe('unit-of-work', () => {
       try {
         const result = await repo.addMany([{ _id: '21' }, { _id: '22' }], true);
         expect(true, 'Should not reach here').eq(false);
-      } catch (err) {
+      } catch (err: any) {
         expect(err.message).eq('some_error');
       }
     });
@@ -335,7 +342,7 @@ describe('unit-of-work', () => {
       try {
         const result = await repo.addMany([{ _id: '21' }, { _id: '22' }], true);
         expect(true, 'Should not reach here').eq(false);
-      } catch (err) {
+      } catch (err: any) {
         expect(err.message).eq('some_error');
       }
     });
@@ -351,7 +358,7 @@ describe('unit-of-work', () => {
 
     it('should patch an item', async () => {
       const repo = uow.getRepository('c1');
-      Object.defineProperty(repo, 'findOneAndUpdate', {
+      Object.defineProperty(repo['_collection'], 'findOneAndUpdate', {
         value: (filter, update, options) => {
           expect(filter).deep.eq({ _id: '23' });
           expect(update).deep.eq({ $set: { name: 'zaid' }, $unset: { email: '' } });
@@ -369,7 +376,7 @@ describe('unit-of-work', () => {
 
     it('should not include a set command no $set is required', async () => {
       const repo = uow.getRepository('c1');
-      Object.defineProperty(repo, 'findOneAndUpdate', {
+      Object.defineProperty(repo['_collection'], 'findOneAndUpdate', {
         value: (filter, update, options) => {
           expect(filter).deep.eq({ _id: '23' });
           expect(update).deep.eq({ $unset: { email: '' } });
@@ -387,7 +394,8 @@ describe('unit-of-work', () => {
 
     it('should not include a unset command no $unset is required', async () => {
       const repo = uow.getRepository('c1');
-      Object.defineProperty(repo, 'findOneAndUpdate', {
+
+      Object.defineProperty(repo['_collection'], 'findOneAndUpdate', {
         value: (filter, update, options) => {
           expect(filter).deep.eq({ _id: '23' });
           expect(update).deep.eq({ $set: { name: 'zaid' } });
@@ -410,16 +418,16 @@ describe('unit-of-work', () => {
           { _id: '23' },
           <any>{ _id: '23' },
           false);
-      } catch (err) {
+      } catch (err: any) {
         expect(err);
       }
     });
 
     it('should not emit update event if not found', async () => {
       const repo = uow.getRepository('c1');
-      Object.defineProperty(repo, 'findOneAndUpdate', {
+      Object.defineProperty(repo['_collection'], 'findOneAndUpdate', {
         value: (filter, update, options) => {
-          return Promise.resolve(undefined);
+          return Promise.resolve('');
         }
       });
       repo.on('update', (item) => {
@@ -782,7 +790,7 @@ describe('unit-of-work', () => {
     });
 
     it('should invalidate key if findOneAndUpdate', async () => {
-      const repo = uow.getRepository('c2');
+      const repo = uow.getRepository('c2') as IRepository<{ name?: string; _id: string }>;
 
       const item = <IEntity>{ _id: '21', type: '21' };
       const query = { _id: '21' };
@@ -806,7 +814,7 @@ describe('unit-of-work', () => {
     });
 
     it('should invalidate key even if findOneAndUpdate did not return', async () => {
-      const repo = uow.getRepository('c2');
+      const repo = uow.getRepository('c2') as IRepository<{ name?: string; _id: string }>;
 
       const item = <IEntity>{ _id: '21', type: '21' };
       const query = { _id: '21' };
@@ -830,7 +838,7 @@ describe('unit-of-work', () => {
     });
 
     it('should not cache the item if returnDocument is before', async () => {
-      const repo = uow.getRepository('c2');
+      const repo = uow.getRepository('c2') as IRepository<{ name?: string; _id: string }>;
 
       const item = <IEntity>{ _id: '21', type: '21' };
       const query = { _id: '21' };
@@ -855,7 +863,7 @@ describe('unit-of-work', () => {
 
 
     it('should not invalidate the cache if fitler does not include _id and result was not found', async () => {
-      const repo = uow.getRepository('c2');
+      const repo = uow.getRepository('c2') as IRepository<{ name?: string; _id: string }>;
 
       const item = <IEntity>{ _id: '21', type: '21' };
       const query = { type: '21' };
@@ -902,17 +910,17 @@ describe('unit-of-work', () => {
     it('should add an item with created.at', async () => {
 
       const repo = uow.getRepository('c3') as AuditableRepository<IAuditable>;
-      await repo.add({ _id: '2' });
-      const result: IAuditable | undefined = await repo.findById('2');
+      await repo.add({ _id: '24' });
+      const result: IAuditable | undefined = await repo.findById('24');
       if (result) {
-        expect(result._id).eq('2');
+        expect(result._id).eq('24');
         expect(result.created?.at).lte(new Date());
         expect(result.created?.by).eq(undefined);
       }
     });
 
     it('should update an item with updated.at', async () => {
-      const repo = uow.getRepository('c3');
+      const repo = uow.getRepository('c3') as IRepository<{ name?: string; _id: string }>;
       const result: IAuditable | undefined = await repo.findById('3');
       await repo.update({ _id: '3' }, { $set: { name: '1' } }, { upsert: true });
       if (result) {
@@ -928,15 +936,13 @@ describe('unit-of-work', () => {
       const repo = uow.getRepository<IAuditable>('c3');
       const result = await repo.addMany([{ _id: '4' }, { _id: '5' }]);
       for (const obj of result) {
-        if (obj) {
-          expect(obj.created?.at).lte(new Date());
-          expect(obj.created?.by).eq(undefined);
-        }
+        expect(obj.created?.at).lte(new Date());
+        expect(obj.created?.by).eq(undefined);
       }
     });
 
     it('should findOneAndUpdate an item with updated.at', async () => {
-      const repo = uow.getRepository('c3');
+      const repo = uow.getRepository('c3') as IRepository<{ name?: string; _id: string }>;
       const result: IAuditable | undefined = await repo.findOneAndUpdate({ _id: '6' }, { $set: { name: '1' } }, { upsert: true });
       if (result) {
         expect(result._id).eq('6');
@@ -946,14 +952,17 @@ describe('unit-of-work', () => {
     });
 
     it('should patch an item with updated.at', async () => {
-      const repo = uow.getRepository<{ _id: string, name: string } & IAuditable>('c3');
-      const result = await repo.patch({ _id: '7' }, { name: '1' }, true);
+      const repo = uow.getRepository<{ _id: string, name?: string } & IAuditable>('c3');
+      await repo.add({ _id: '7' });
+      const result = await repo.patch({ _id: '7' }, { name: '1222' }, false);
       if (result) {
         expect(result._id).eq('7');
         expect(result.created?.at).lte(new Date());
         expect(result.created?.by).eq(undefined);
         expect(result.updated?.at).lte(new Date());
         expect(result.updated?.by).eq(undefined);
+      } else {
+        throw new Error('update was not done.');
       }
     });
 
@@ -973,44 +982,17 @@ async function getMongoClient(): Promise<MongoClient> {
   return MongoClient.connect('mongodb://localhost:27017/db1');
 }
 
-function getFactory() {
-  return (name: string, client: MongoClient, session: ClientSession) => {
-    switch (name) {
-      case 'c1': {
-        const collection: Collection<IEntity> = client.collection('c1', { session }, undefined);
-        const cb = async (filter, options) => {
-          const result = await collection.findOne(filter, options);
-          await collection.deleteOne(filter);
-          return { value: result };
-        }
-        collection.findOneAndDelete = <any>cb;
-        return new BaseRepository<IEntity>('c1', collection, session);
-      }
-      case 'c2': {
-        const collection: Collection<IEntity> = client.collection('c2', { session }, undefined);
-        const cb = async (filter, options) => {
-          const result = await collection.findOne(filter, options);
-          await collection.deleteOne(filter);
-          return { value: result };
-        }
-        collection.findOneAndDelete = <any>cb;
-        return new BaseRepositoryWithCache<IEntity>('c2', collection, getCache(), session);
-      }
-      case 'c3': {
-        const collection: Collection<IAuditable> = client.collection('c3', { session }, undefined);
-        const cb = async (filter, options) => {
-          const result = await collection.findOne(filter, options);
-          await collection.deleteOne(filter);
-          return { value: result };
-        }
-        collection.findOneAndDelete = <any>cb;
-        return new AuditableRepository<IAuditable>('c3', collection, session);
-      }
-      default: throw new Error('unkown repo');
-    }
-  };
+function getMockedCollection(name: string, client: MongoClient, session?: ClientSession) {
+  const collection: Collection<IAuditable> = client.collection(name, { session }, undefined);
+  const cb = async (filter, options) => {
+    const result = await collection.findOne(filter, options);
+    await collection.deleteOne(filter);
+    console.log('findOneAndDelete', filter, result);
+    return { value: result };
+  }
+  collection.findOneAndDelete = <any>cb;
+  return collection;
 }
-
 function getCache() {
   return <ICache<string, IEntity>>{
 
