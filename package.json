@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Zaid-AlOmari/mongo-unit-of-work"
+    "url": "git+https://github.com/Zaid-AlOmari/mongo-unit-of-work.git"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
@@ -20,8 +20,8 @@
     "build": "rm -rf dist && ./node_modules/.bin/tsc --p tsconfig.json",
     "test": "rm -rf dist-test && cd test && ../node_modules/.bin/tsc -p . && NODE_ENV=test NODE_OPTIONS='--disable-warning=ExperimentalWarning' node --test --experimental-test-coverage --test-coverage-include='../dist-test/src/**/*.js' --test-coverage-exclude='../dist-test/test/**/*.js' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 ../dist-test/test/index.spec.js",
     "type-check": "tsc --noEmit",
-    "lint": "./node_modules/.bin/eslint src/*/*.ts --format codeframe",
-    "fix-lint": "./node_modules/.bin/eslint src/*/*.ts --fix"
+    "lint": "eslint src/*/*.ts --format codeframe",
+    "fix-lint": "eslint src/*/*.ts --fix"
   },
   "dependencies": {
     "mongodb": "^7.2.0"
