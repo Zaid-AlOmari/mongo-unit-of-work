@@ -103,7 +103,7 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
       { $set },
       { returnDocument: 'after', session: this._session }
     );
-    return result.value ? <T>result.value : undefined;
+    return this.getFindAndModifyValue<T>(result);
   }
 
   findOne(filter: Filter<T>, projection?: any): Promise<T | undefined> {

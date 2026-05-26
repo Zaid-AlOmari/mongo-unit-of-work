@@ -1,10 +1,10 @@
-import { Collection, ClientSession, Filter, UpdateFilter, UpdateOptions, FindOneAndUpdateOptions, ObjectId, OptionalId, AggregateOptions, UpdateResult, Document, WithId, OptionalUnlessRequiredId } from 'mongodb';
+import { Collection, ClientSession, Filter, UpdateFilter, UpdateOptions, FindOneAndUpdateOptions, AggregateOptions, UpdateResult, Document, OptionalUnlessRequiredId } from 'mongodb';
 import { EventEmitter } from 'events';
 import { flatObj } from '../utils/flatObj';
-import loggerFactory from '@log4js-node/log4js-api';
+import { getPackageLogger } from '../logging';
 import { IRepository, IEntity, IPage, IPaging } from '../interfaces';
 
-const logger = loggerFactory.getLogger('BaseRepository');
+const logger = getPackageLogger('BaseRepository');
 
 export class BaseRepository<T extends IEntity> implements IRepository<T> {
 
@@ -17,8 +17,16 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     return this._name;
   }
 
+  protected getFindAndModifyValue<TDocument>(result: unknown): TDocument | undefined {
+    if (!result) return undefined;
+    if (typeof result === 'object' && 'value' in result) {
+      return (result as { value?: TDocument | null }).value || undefined;
+    }
+    return result as TDocument;
+  }
+
   async aggregate<T extends Document>(pipeline: object[], options?: AggregateOptions) {
-    logger.trace('aggregate', this._name, JSON.stringify(pipeline), JSON.stringify({ ...options, session: undefined }));
+    logger.trace('aggregate', { collection: this._name, pipeline, options, session: Boolean(this._session) });
     return this._collection.aggregate<T>(
       pipeline,
       { ...options, session: this._session }
@@ -30,14 +38,14 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
   }
 
   async add(item: T): Promise<T> {
-    logger.trace('add', this._name, JSON.stringify(item));
+    logger.trace('add', { collection: this._name, item, session: Boolean(this._session) });
     await this._collection.insertOne(<OptionalUnlessRequiredId<T>>item, { session: this._session });
     this._eventEmitter.emit('add', item);
     return item;
   }
 
   async addMany(items: T[], ordered = true): Promise<T[]> {
-    logger.trace('addMany', this._name, JSON.stringify(items), `ordered : ${ordered}`);
+    logger.trace('addMany', { collection: this._name, items, ordered, session: Boolean(this._session) });
     let resultItems: T[];
     try {
       await this._collection.insertMany(items as OptionalUnlessRequiredId<T>[], { ordered, session: this._session });
@@ -57,7 +65,7 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
   }
 
   async patch(filter: Filter<T>, item: Partial<T>, upsert = false): Promise<T | undefined> {
-    logger.trace('patch', this._name, JSON.stringify(item), `upsert : ${upsert}`);
+    logger.trace('patch', { collection: this._name, filter, item, upsert, session: Boolean(this._session) });
     const flatObject: any = flatObj(item);
     const undefinedKeys = Object.keys(flatObject).filter(x => flatObject[x] === undefined || flatObject[x] === null);
     const set = { ...flatObject };
@@ -73,45 +81,47 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     if (Object.keys(updateObj).length === 0) return Promise.reject(new Error('No changes submited!'));
 
     const result = await this._collection.findOneAndUpdate(filter, updateObj, { upsert, session: this._session, returnDocument: 'after' });
-    if (result) {
-      this._eventEmitter.emit('update', result);
+    const updated = this.getFindAndModifyValue<T>(result);
+    if (updated) {
+      this._eventEmitter.emit('update', updated);
     }
-    return result.value ? <T>result.value : undefined;
+    return updated;
   }
 
   async deleteOne(filter: Filter<T>): Promise<T | undefined> {
-    logger.trace('delete', this._name, JSON.stringify(filter));
+    logger.trace('deleteOne', { collection: this._name, filter, session: Boolean(this._session) });
     const x = await this._collection.findOneAndDelete(filter, { session: this._session });
-    this._eventEmitter.emit('delete', x.value);
-    return x.value ? <T>x.value : undefined;
+    const deleted = this.getFindAndModifyValue<T>(x);
+    this._eventEmitter.emit('delete', deleted);
+    return deleted;
   }
 
   async deleteMany(filter: Filter<T>): Promise<number> {
-    logger.trace('deleteMany', this._name, JSON.stringify(filter));
+    logger.trace('deleteMany', { collection: this._name, filter, session: Boolean(this._session) });
     const x = await this._collection.deleteMany(filter, { session: this._session });
     return x.deletedCount;
   }
 
   async findOne(filter: Filter<T>, projection?: any): Promise<T | undefined> {
-    logger.trace('findOne', this._name, JSON.stringify(filter), JSON.stringify(projection));
+    logger.trace('findOne', { collection: this._name, filter, projection, session: Boolean(this._session) });
     const x = await this._collection.findOne<T>(filter, { projection, session: this._session });
     return x || undefined;
   }
 
   async findById(id: string, projection?: any): Promise<T | undefined> {
-    logger.trace('findById', this._name, id, JSON.stringify(projection));
+    logger.trace('findById', { collection: this._name, id, projection, session: Boolean(this._session) });
     const x = await this._collection.findOne<T>(<T>{ _id: id }, { projection, session: this._session });
     return x || undefined;
   }
 
   async findMany(filter: Filter<T>, projection?: any): Promise<T[]> {
-    logger.trace('findMany', this._name, JSON.stringify(filter), JSON.stringify(projection));
+    logger.trace('findMany', { collection: this._name, filter, projection, session: Boolean(this._session) });
     const result = await this._collection.find(filter, { projection, session: this._session }).toArray();
     return <T[]>result;
   }
 
   async findManyPage(filter: Filter<T>, paging: IPaging, projection?: any): Promise<IPage<T>> {
-    logger.trace('findMany', this._name, JSON.stringify(filter), JSON.stringify(paging), JSON.stringify(projection));
+    logger.trace('findManyPage', { collection: this._name, filter, paging, projection, session: Boolean(this._session) });
     const total = await this._collection.countDocuments(filter, <{}>{ fields: projection, session: this._session });
     let cursor = this._collection
       .find<T>(filter, { projection, session: this._session });
@@ -131,16 +141,16 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
   }
 
   async update(filter: Filter<T>, update: UpdateFilter<T>, options?: UpdateOptions): Promise<Document | UpdateResult> {
-    logger.trace('update', this._name, JSON.stringify(filter), JSON.stringify(update), JSON.stringify(options));
+    logger.trace('update', { collection: this._name, filter, update, options, session: Boolean(this._session) });
     const result = await this._collection.updateMany(filter, update, { ...options, session: this._session });
     return result;
   }
 
 
   async findOneAndUpdate(filter: Filter<T>, update: UpdateFilter<T>, options?: FindOneAndUpdateOptions): Promise<T | undefined> {
-    logger.trace('findOneAndUpdate', this._name, JSON.stringify(filter), JSON.stringify(update), JSON.stringify(options));
+    logger.trace('findOneAndUpdate', { collection: this._name, filter, update, options, session: Boolean(this._session) });
     const result = await this._collection.findOneAndUpdate(filter, update, { ...options, session: this._session });
-    return result.value ? <T>result.value : undefined;
+    return this.getFindAndModifyValue<T>(result);
   }
 
   protected _eventEmitter = new EventEmitter();

@@ -1,9 +1,9 @@
 import { MongoClient, ClientSession } from 'mongodb';
 import { IUnitOfWork, IRepository, IEntity, IRepositoryFactory } from '../interfaces';
-import loggerFactory from '@log4js-node/log4js-api';
+import { getPackageLogger } from '../logging';
 import { IUnitOfWorkOptions } from '../interfaces/IUnitOfWork';
 
-const logger = loggerFactory.getLogger('UnitOfWork');
+const logger = getPackageLogger('UnitOfWork');
 
 export class UnitOfWork implements IUnitOfWork {
 
@@ -19,7 +19,7 @@ export class UnitOfWork implements IUnitOfWork {
     if (this._session) return this._session;
     this._session = this._client.startSession();
     this._session.startTransaction();
-    logger.debug('startSession');
+    logger.debug('startSession', { hasTransaction: this._session.inTransaction() });
     return this._session;
   }
 
@@ -34,7 +34,7 @@ export class UnitOfWork implements IUnitOfWork {
   async commit(): Promise<void> {
     if (this._session && this._session.inTransaction()) {
       const result = await this._session.commitTransaction();
-      logger.debug('commit', result);
+      logger.debug('commit', { committed: true, result });
     }
     return Promise.resolve();
   }
@@ -42,7 +42,7 @@ export class UnitOfWork implements IUnitOfWork {
   async rollback(): Promise<void> {
     if (this._session && this._session.inTransaction()) {
       const result = await this._session.abortTransaction();
-      logger.debug('rollback', result);
+      logger.debug('rollback', { rolledBack: true, result });
     }
     return Promise.resolve();
   }
@@ -53,12 +53,6 @@ export class UnitOfWork implements IUnitOfWork {
     if (this._session.inTransaction()) {
       await this.rollback();
     }
-    return new Promise((resolve, reject) => {
-      if (!this._session) return resolve();
-      this._session.endSession((err) => {
-        if (err) return reject(err);
-        return resolve();
-      });
-    });
+    await this._session.endSession();
   }
 }

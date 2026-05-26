@@ -1,6 +1,6 @@
 {
   "name": "mongo-unit-of-work",
-  "version": "2.2.3",
+  "version": "3.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "author": "Zaid Al-Omari",
@@ -12,34 +12,27 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org"
   },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
-    "build": "./node_modules/.bin/tsc --p tsconfig.json",
-    "test": "cd test; ../node_modules/.bin/tsc -p .; NODE_ENV=test ../node_modules/.bin/nyc ../node_modules/.bin/mocha '../dist-test/**/*.spec.js'",
+    "clean": "rm -rf dist dist-test",
+    "build": "rm -rf dist && ./node_modules/.bin/tsc --p tsconfig.json",
+    "test": "rm -rf dist-test && cd test && ../node_modules/.bin/tsc -p . && NODE_ENV=test NODE_OPTIONS='--disable-warning=ExperimentalWarning' node --test --experimental-test-coverage --test-coverage-include='../dist-test/src/**/*.js' --test-coverage-exclude='../dist-test/test/**/*.js' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 ../dist-test/test/index.spec.js",
     "type-check": "tsc --noEmit",
     "lint": "./node_modules/.bin/eslint src/*/*.ts --format codeframe",
     "fix-lint": "./node_modules/.bin/eslint src/*/*.ts --fix"
   },
   "dependencies": {
-    "@log4js-node/log4js-api": "^1.0.2",
-    "mongodb": "^4.9.1"
+    "mongodb": "^7.2.0"
   },
   "devDependencies": {
-    "@types/chai": "^4.2.3",
-    "@types/mocha": "^5.2.7",
-    "@types/node": "^10.12.2",
-    "@types/sinon": "^7.5.0",
-    "@typescript-eslint/eslint-plugin": "^5.30.7",
-    "@typescript-eslint/experimental-utils": "^5.30.7",
-    "@typescript-eslint/parser": "^5.30.7",
-    "eslint": "^8.20.0",
-    "eslint-formatter-codeframe": "^7.32.1",
-    "chai": "^4.2.0",
-    "mocha": "^7.1.2",
-    "mongo-mock": "^4.1.0",
-    "nyc": "^15.0.1",
-    "sinon": "^9.0.2",
-    "sinon-chai": "^3.5.0",
-    "source-map-support": "^0.5.19",
-    "typescript": "^4.7.4"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.1",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "eslint": "^10.4.0",
+    "eslint-formatter-codeframe": "^7.32.2",
+    "typescript": "^6.0.3"
   }
 }

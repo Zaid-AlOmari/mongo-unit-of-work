@@ -1,9 +1,19 @@
-export { UnitOfWork, BaseRepository, BaseRepositoryWithCache, AuditableRepository } from './uow';
+export { UnitOfWork, BaseRepository, AuditableRepository } from './uow';
+export {
+  configureLogging,
+  createJsonLogHandler,
+  getPackageLogger,
+  LogHandler,
+  LogLevel,
+  LogRecord,
+  LoggingOptions,
+  PackageLogger,
+  resetLogging
+} from './logging';
 export {
   IEntity,
   IRead, IWrite,
-  IRepository, IRepositoryWithCache, IRepositoryFactory,
+  IRepository, IRepositoryFactory, Repositories, getFactory,
   IPage, IPaging, defaultPaging,
-  IUnitOfWork, IUnitOfWorkOptions, ICache, IAuditable,
-  ResourceAccess, IProtectedResource, Access
+  IUnitOfWork, IUnitOfWorkOptions, IAuditable
 } from './interfaces';
