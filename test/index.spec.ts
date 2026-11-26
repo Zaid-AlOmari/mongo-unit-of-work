@@ -50,6 +50,10 @@ class FakeCursor<T extends IEntity> {
     return this;
   }
 
+  async *[Symbol.asyncIterator]() {
+    for (const item of await this.toArray()) yield item;
+  }
+
   async toArray() {
     let result = [...this.items];
     if (this.sorter) {
@@ -778,4 +782,82 @@ test('AuditableRepository leaves aggregate pipelines unchanged when soft delete 
   await repo.aggregate(pipeline);
 
   assert.equal(collection.aggregateCalls[0].pipeline, pipeline);
+});
+
+test('BaseRepository returns a session-bound find cursor', async () => {
+  const session = new FakeSession();
+  const collection = new FakeCollection<Item>([
+    { _id: '1', name: 'b' },
+    { _id: '2', name: 'a' },
+    { _id: '3', name: 'c' },
+  ]);
+  const repo = repository(collection, session);
+
+  const cursor = repo.findCursor({}, { projection: { name: 1 }, session: 'ignored' } as any);
+  const streamed: string[] = [];
+  for await (const item of cursor.sort({ name: 1 }).limit(2)) streamed.push(item._id);
+
+  assert.deepEqual(streamed, ['2', '1']);
+  assert.deepEqual(collection.findCalls[0].filter, {});
+  assert.deepEqual(collection.findCalls[0].options.projection, { name: 1 });
+  assert.equal(collection.findCalls[0].options.session, session);
+});
+
+test('BaseRepository find cursor works without options or session', async () => {
+  const collection = new FakeCollection<Item>([{ _id: '1', name: 'a' }]);
+  const repo = repository(collection);
+
+  assert.deepEqual(await repo.findCursor({ name: 'a' }).toArray(), [{ _id: '1', name: 'a' }]);
+  assert.equal(collection.findCalls[0].options.session, undefined);
+});
+
+test('BaseRepository returns a session-bound aggregation cursor', async () => {
+  const session = new FakeSession();
+  const collection = new FakeCollection<Item>([{ _id: '1', name: 'a' }]);
+  const repo = repository(collection, session);
+  const pipeline = [{ $match: { name: 'a' } }];
+
+  const cursor = repo.aggregateCursor(pipeline, { allowDiskUse: true });
+
+  assert.deepEqual(await cursor.toArray(), [{ _id: '1', name: 'a' }]);
+  assert.equal(collection.aggregateCalls[0].pipeline, pipeline);
+  assert.equal(collection.aggregateCalls[0].options.allowDiskUse, true);
+  assert.equal(collection.aggregateCalls[0].options.session, session);
+});
+
+test('AuditableRepository find cursor excludes soft-deleted documents', async () => {
+  const session = new FakeSession();
+  const collection = new FakeCollection<Item>([
+    { _id: '1', name: 'a' },
+    { _id: '2', name: 'a', deleted: { at: new Date('2026-05-27T00:00:00.000Z') } },
+  ]);
+  const repo = auditableRepository(collection, {}, session);
+
+  assert.deepEqual((await repo.findCursor({ name: 'a' }).toArray()).map(item => item._id), ['1']);
+  assert.deepEqual(collection.findCalls[0].filter, { name: 'a', deleted: { $exists: false } });
+  assert.equal(collection.findCalls[0].options.session, session);
+});
+
+test('AuditableRepository find cursor keeps soft-deleted documents when soft delete is disabled', async () => {
+  const collection = new FakeCollection<Item>([
+    { _id: '1', name: 'a', deleted: { at: new Date('2026-05-27T00:00:00.000Z') } },
+  ]);
+  const repo = auditableRepository(collection, { softDelete: false });
+
+  assert.equal((await repo.findCursor({ name: 'a' }).toArray()).length, 1);
+  assert.deepEqual(collection.findCalls[0].filter, { name: 'a' });
+});
+
+test('AuditableRepository aggregation cursor injects deleted filters', async () => {
+  const collection = new FakeCollection<Item>();
+  const repo = auditableRepository(collection);
+
+  repo.aggregateCursor([{ $match: { name: 'a' } }]);
+  repo.aggregateCursor([{ $project: { name: 1 } }]);
+
+  assert.deepEqual(collection.aggregateCalls[0].pipeline, [{ $match: { deleted: { $exists: false }, name: 'a' } }]);
+  assert.deepEqual(collection.aggregateCalls[1].pipeline, [
+    { $match: { deleted: { $exists: false } } },
+    { $project: { name: 1 } },
+  ]);
 });

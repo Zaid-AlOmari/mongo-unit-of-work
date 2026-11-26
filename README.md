@@ -160,8 +160,10 @@ Call `resetLogging()` in tests if you need to restore the silent default.
 - `findById(id, projection?)`
 - `findMany(filter, projection?)`
 - `findManyPage(filter, paging, projection?)`
+- `findCursor(filter, options?)` — returns the MongoDB `FindCursor`
 - `findOneAndUpdate(filter, update, options?)`
 - `aggregate(pipeline, options?)`
+- `aggregateCursor(pipeline, options?)` — returns the MongoDB `AggregationCursor`
 - `count(filter)`
 
 It also exposes an `EventEmitter` through `changes` and `on(event, callback)` for `add`, `update`, and `delete` events.
@@ -188,6 +190,27 @@ const repo = new AuditableRepository(
 ```
 
 Soft delete is enabled by default. When enabled, reads and counts automatically exclude documents where `deleted` exists.
+
+## Cursors
+
+`findMany` and `aggregate` load every result into an array. When you need to stream large result sets, or chain cursor operations yourself, use `findCursor` and `aggregateCursor`. They return the MongoDB driver cursors, already bound to the repository's session, so they take part in the unit-of-work transaction.
+
+Both methods are available on `BaseRepository` and `AuditableRepository` (and your classes that extend them). They are not part of the `IRead` / `IRepository` interfaces, so existing custom implementations of those interfaces keep compiling unchanged. `getRepository` returns `IRepository<T>`, so cast to your repository class to use them:
+
+```ts
+const users = unitOfWork.getRepository<User>('users') as BaseRepository<User>;
+
+const cursor = users
+  .findCursor({ active: true }, { projection: { email: 1 } })
+  .sort({ email: 1 })
+  .batchSize(500);
+
+for await (const user of cursor) {
+  await sendNewsletter(user.email);
+}
+```
+
+`AuditableRepository` applies the same soft-delete filter to cursors that it applies to `findMany` and `aggregate`. Any `session` passed in options is ignored in favor of the repository's session. You own the returned cursor. Leaving a `for await` loop early (`break`, `return` or an exception) releases it automatically; if you read it manually with `next()` and stop before the end, call `await cursor.close()` before you commit or dispose the unit of work.
 
 ## Paging
 
