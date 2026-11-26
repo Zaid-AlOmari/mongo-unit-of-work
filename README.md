@@ -195,7 +195,11 @@ Soft delete is enabled by default. When enabled, reads and counts automatically 
 
 `findMany` and `aggregate` load every result into an array. When you need to stream large result sets, or chain cursor operations yourself, use `findCursor` and `aggregateCursor`. They return the MongoDB driver cursors, already bound to the repository's session, so they take part in the unit-of-work transaction.
 
+Both methods are available on `BaseRepository` and `AuditableRepository` (and your classes that extend them). They are not part of the `IRead` / `IRepository` interfaces, so existing custom implementations of those interfaces keep compiling unchanged. `getRepository` returns `IRepository<T>`, so cast to your repository class to use them:
+
 ```ts
+const users = unitOfWork.getRepository<User>('users') as BaseRepository<User>;
+
 const cursor = users
   .findCursor({ active: true }, { projection: { email: 1 } })
   .sort({ email: 1 })

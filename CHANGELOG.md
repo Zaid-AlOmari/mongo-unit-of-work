@@ -4,9 +4,10 @@
 
 ### Added
 
-- `findCursor(filter, options?)` on `BaseRepository` and `IRead`, returning the MongoDB `FindCursor` bound to the repository session.
+- `findCursor(filter, options?)` on `BaseRepository`, returning the MongoDB `FindCursor` bound to the repository session.
 - `aggregateCursor(pipeline, options?)` on `BaseRepository`, returning the MongoDB `AggregationCursor` bound to the repository session.
 - `AuditableRepository` applies its soft-delete filter to both cursor methods.
+- The `IRead` / `IRepository` interfaces are unchanged, so custom implementations keep compiling.
 
 ## 3.0.0
 
