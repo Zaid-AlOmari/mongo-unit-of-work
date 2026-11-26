@@ -1,4 +1,4 @@
-import { Collection, ClientSession, Filter, UpdateFilter, UpdateOptions, FindOneAndUpdateOptions, AggregateOptions, UpdateResult, Document, OptionalUnlessRequiredId } from 'mongodb';
+import { Collection, ClientSession, Filter, UpdateFilter, UpdateOptions, FindOneAndUpdateOptions, AggregateOptions, AggregationCursor, FindCursor, FindOptions, UpdateResult, Document, OptionalUnlessRequiredId } from 'mongodb';
 import { EventEmitter } from 'events';
 import { flatObj } from '../utils/flatObj';
 import { getPackageLogger } from '../logging';
@@ -31,6 +31,19 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
       pipeline,
       { ...options, session: this._session }
     ).toArray();
+  }
+
+  /**
+   * Returns the MongoDB aggregation cursor instead of loading every result into memory.
+   * The cursor is bound to this repository's session. The caller owns the cursor and
+   * should close it if it is not fully consumed.
+   */
+  aggregateCursor<T extends Document>(pipeline: object[], options?: Omit<AggregateOptions, 'session'>): AggregationCursor<T> {
+    logger.trace('aggregateCursor', { collection: this._name, pipeline, options, session: Boolean(this._session) });
+    return this._collection.aggregate<T>(
+      pipeline,
+      { ...options, session: this._session }
+    );
   }
 
   async count(filter: Filter<T>) {
@@ -118,6 +131,17 @@ export class BaseRepository<T extends IEntity> implements IRepository<T> {
     logger.trace('findMany', { collection: this._name, filter, projection, session: Boolean(this._session) });
     const result = await this._collection.find(filter, { projection, session: this._session }).toArray();
     return <T[]>result;
+  }
+
+  /**
+   * Returns the MongoDB find cursor instead of loading every result into memory, so callers
+   * can stream with `for await`, chain `sort`/`limit`/`batchSize`, or call `toArray()`.
+   * The cursor is bound to this repository's session. The caller owns the cursor and
+   * should close it if it is not fully consumed.
+   */
+  findCursor(filter: Filter<T>, options?: Omit<FindOptions, 'session'>): FindCursor<T> {
+    logger.trace('findCursor', { collection: this._name, filter, options, session: Boolean(this._session) });
+    return this._collection.find<T>(filter, { ...options, session: this._session });
   }
 
   async findManyPage(filter: Filter<T>, paging: IPaging, projection?: any): Promise<IPage<T>> {

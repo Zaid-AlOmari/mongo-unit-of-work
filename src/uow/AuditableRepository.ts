@@ -6,6 +6,9 @@ import {
   FindOneAndUpdateOptions,
   UpdateFilter,
   AggregateOptions,
+  AggregationCursor,
+  FindCursor,
+  FindOptions,
   UpdateResult,
   MatchKeysAndValues,
   Document
@@ -116,6 +119,11 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
     return super.findMany(newFilter, projection);
   }
 
+  findCursor(filter: Filter<T>, options?: Omit<FindOptions, 'session'>): FindCursor<T> {
+    const newFilter = this.getDeletedFilter(filter);
+    return super.findCursor(newFilter, options);
+  }
+
   findManyPage(filter: Filter<T>, paging: IPaging, projection?: any): Promise<IPage<T>> {
     const newFilter = this.getDeletedFilter(filter);
     return super.findManyPage(newFilter, paging, projection);
@@ -138,17 +146,20 @@ export class AuditableRepository<T extends IAuditable> extends BaseRepository<T>
   }
 
   aggregate<T extends Document>(pipeline: object[], options?: AggregateOptions | undefined): Promise<T[]> {
-    let newPipeline = pipeline;
+    return super.aggregate<T>(this.getDeletedPipeline(pipeline), options);
+  }
 
-    if (this._configs.softDelete) {
-      if (pipeline.length > 0 && typeof pipeline[0] === 'object' && pipeline[0]['$match']) {
-        const [existingMatch, ...rest] = pipeline;
-        newPipeline = [{ $match: { deleted: { $exists: false }, ...existingMatch['$match'] } }, ...rest];
-      } else {
-        newPipeline = [{ $match: { deleted: { $exists: false } } }, ...pipeline];
-      }
+  aggregateCursor<T extends Document>(pipeline: object[], options?: Omit<AggregateOptions, 'session'>): AggregationCursor<T> {
+    return super.aggregateCursor<T>(this.getDeletedPipeline(pipeline), options);
+  }
+
+  protected getDeletedPipeline(pipeline: object[]): object[] {
+    if (!this._configs.softDelete) return pipeline;
+    if (pipeline.length > 0 && typeof pipeline[0] === 'object' && pipeline[0]['$match']) {
+      const [existingMatch, ...rest] = pipeline;
+      return [{ $match: { deleted: { $exists: false }, ...existingMatch['$match'] } }, ...rest];
     }
-    return super.aggregate<T>(newPipeline, options);
+    return [{ $match: { deleted: { $exists: false } } }, ...pipeline];
   }
 
   addAuditableFields<T extends IAuditable>(updateObject: UpdateFilter<T>, upsert = false) {
